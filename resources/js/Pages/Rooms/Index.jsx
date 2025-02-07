@@ -1,90 +1,155 @@
-import React from "react";
-import { usePage } from "@inertiajs/react";
-import { Bar } from "react-chartjs-2";
-import {
-  Chart as ChartJS, // เรียกใช้งานโมดูล Chart.js
-  CategoryScale,    // เรียกใช้งานโมดูล CategoryScale
-  LinearScale,    // เรียกใช้งานโมดูล LinearScale
-  BarElement,    // เรียกใช้งานโมดูล BarElement
-  Title,            // เรียกใช้งานโมดูล Title
-  Tooltip,      // เรียกใช้งานโมดูล Tooltip
-  Legend,   // เรียกใช้งานโมดูล
-} from "chart.js";
-// ลงทะเบียนโมดูล Chart.js
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+import React, { useState } from "react";
+import { usePage, router, Link } from "@inertiajs/react";
+import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
+import Swal from "sweetalert2";
 
 export default function Index() {
-  const { bookings } = usePage().props;
+  const { bookings = [] } = usePage().props;
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
-  console.log(bookings); // Debug ข้อมูล
+  const filteredBookings = bookings.filter((booking) =>
+    [booking.customer_name, booking.customer_phone, booking.room_number].some(
+      (field) => field?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  );
 
-  // ประมวลผลข้อมูลการจองของลูกค้า
-  const bookingCounts = bookings.reduce((acc, booking) => {
-    acc[booking.customer_name] = (acc[booking.customer_name] || 0) + 1;
-    return acc;
-  }, {});
+  const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
+  const currentBookings = filteredBookings.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
-  const chartData = {
-    labels: Object.keys(bookingCounts), // รายชื่อลูกค้า
-    datasets: [
-      {
-        label: "จำนวนครั้งที่จองห้องพัก",
-        data: Object.values(bookingCounts), // จำนวนครั้งที่ลูกค้าจอง
-        backgroundColor: "rgba(75, 192, 192, 0.6)",
-        borderColor: "rgba(75, 192, 192, 1)",
-        borderWidth: 1,
-      },
-    ],
+  const handlePageChange = (page) => {
+    if (page > 0 && page <= totalPages) {
+      setCurrentPage(page);
+    }
   };
 
   return (
-    <div className="container mx-auto p-8 bg-gray-100 min-h-screen">
-      {/* ส่วนหัว */}
-      <div className="text-center mb-6">
+    <AuthenticatedLayout>
+      <div className="container mx-auto p-8 bg-white shadow-lg rounded-lg border border-gray-200">
+        <h2 className="text-3xl font-bold text-center mb-6 text-indigo-600">
+          รายการการจองที่พัก
+        </h2>
 
-        <p className="text-gray-600 mt-2">วิเคราะห์ข้อมูลการจองห้องพักของลูกค้า</p>
-      </div>
+        <div className="flex flex-wrap justify-center items-center mb-6 space-x-4">
+          <input
+            type="text"
+            placeholder="🔍 ค้นหาด้วยชื่อลูกค้า หมายเลขโทรศัพท์ หรือหมายเลขห้อง"
+            className="border px-4 py-2 w-2/3 rounded-lg shadow focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <Link
+            href="/rooms/create"
+            className="bg-green-500 text-white px-4 py-2 rounded-lg shadow hover:bg-green-600 transition"
+          >
+             เพิ่มการจอง
+          </Link>
+        </div>
 
-      {/* กราฟแท่ง */}
-      <div className="bg-white shadow-lg rounded-lg p-6 mb-8">
-        <h2 className="text-2xl font-semibold text-gray-700 mb-4">🔹 กราฟจำนวนครั้งที่ลูกค้าจองห้องพัก</h2>
-        <div className="flex justify-center">
-          <div className="w-full max-w-3xl">
-            <Bar data={chartData} />
+        {currentBookings.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full bg-white shadow-md rounded-lg border border-gray-200">
+              <thead>
+                <tr className="bg-gradient-to-r from-indigo-500 to-blue-500 text-white">
+                  <th className="py-3 px-4 text-left">ชื่อลูกค้า</th>
+                  <th className="py-3 px-4 text-left">โทรศัพท์</th>
+                  <th className="py-3 px-4 text-left">หมายเลขห้อง</th>
+                  <th className="py-3 px-4 text-left">สถานะ</th>
+                  <th className="py-3 px-4 text-left">เช็คอิน</th>
+                  <th className="py-3 px-4 text-left">เช็คเอาท์</th>
+                  <th className="py-3 px-4 text-left">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentBookings.map((booking, index) => (
+                  <tr
+                    key={index}
+                    className="border-b hover:bg-gray-100 odd:bg-gray-50 transition"
+                  >
+                    <td className="py-3 px-4">{booking.customer_name || "ไม่ระบุ"}</td>
+                    <td className="py-3 px-4">{booking.customer_phone || "ไม่ระบุ"}</td>
+                    <td className="py-3 px-4">{booking.room_number || "ไม่ระบุ"}</td>
+                    <td className={`py-3 px-4 font-semibold
+                      ${booking.room_status === "reserved" ? "text-red-500" : "text-green-600"}`}>
+                      {booking.room_status === "reserved" ? "จองแล้ว" : "ว่าง"}
+                    </td>
+                    <td className="py-3 px-4">
+                      {booking.check_in_date
+                        ? new Date(booking.check_in_date).toLocaleDateString()
+                        : "ไม่ระบุ"}
+                    </td>
+                    <td className="py-3 px-4">
+                      {booking.check_out_date
+                        ? new Date(booking.check_out_date).toLocaleDateString()
+                        : "ไม่ระบุ"}
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex flex-wrap space-x-2">
+                        <Link
+                          href={`/rooms/${booking.id}/edit`}
+                          className="bg-yellow-500 text-white px-4 py-2 rounded-lg shadow hover:bg-yellow-600 transition"
+                        >
+                           แก้ไข
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(booking.id)}
+                          className="bg-red-500 text-white px-4 py-2 rounded-lg shadow hover:bg-red-600 transition"
+                        >
+                           ลบ
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+        ) : (
+          <p className="text-center py-6 text-gray-500 text-lg">📭 ไม่มีข้อมูลการจอง</p>
+        )}
+
+        <div className="flex justify-center items-center space-x-4 mt-6">
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          >
+            ⬅️ ก่อนหน้า
+          </button>
+          <span className="text-lg font-semibold">{currentPage} / {totalPages}</span>
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          >
+            ถัดไป ➡️
+          </button>
         </div>
       </div>
-
-      {/* ตารางข้อมูล */}
-      <div className="bg-white shadow-lg rounded-lg p-6">
-        <h2 className="text-2xl font-semibold text-gray-700 mb-4">📋 รายการการจองห้องพัก</h2>
-        {Array.isArray(bookings) && bookings.length > 0 ? (
-          <table className="min-w-full bg-white border border-gray-300 rounded-lg">
-            <thead>
-              <tr className="bg-blue-500 text-white">
-                <th className="py-3 px-4 text-left">ชื่อของลูกค้า</th>
-                <th className="py-3 px-4 text-left">หมายเลขโทรศัพท์</th>
-                <th className="py-3 px-4 text-left">หมายเลขห้อง</th>
-                <th className="py-3 px-4 text-left">วันที่เช็คอิน</th>
-                <th className="py-3 px-4 text-left">วันที่เช็คเอาท์</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bookings.map((booking, index) => (
-                <tr key={index} className="border-b hover:bg-gray-100">
-                  <td className="py-3 px-4">{booking.customer_name}</td>
-                  <td className="py-3 px-4">{booking.customer_phone}</td>
-                  <td className="py-3 px-4">{booking.room_number}</td>
-                  <td className="py-3 px-4">{booking.check_in_date}</td>
-                  <td className="py-3 px-4">{booking.check_out_date}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="text-center text-gray-600">ไม่มีการจองห้องพัก</p>
-        )}
-      </div>
-    </div>
+    </AuthenticatedLayout>
   );
+
+  function handleDelete(id) {
+    Swal.fire({
+      title: "คุณต้องการลบการจองนี้หรือไม่?",
+      text: "การลบไม่สามารถย้อนกลับได้",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "ลบ",
+      cancelButtonText: "ยกเลิก",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        router.delete(`/rooms/${id}`, {
+          onSuccess: () =>
+            Swal.fire("ลบสำเร็จ!", "การจองถูกลบแล้ว", "success"),
+        });
+      }
+    });
+  }
 }

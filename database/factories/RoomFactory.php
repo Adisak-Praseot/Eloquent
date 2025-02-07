@@ -22,7 +22,7 @@ class RoomFactory extends Factory
             // การสุ่มหมายเลขห้องที่เป็นตัวเลข เช่น 100 ถึง 999
             'room_number' => $this->faker->numberBetween(100, 999),
             // การสุ่มสถานะของห้อง (สามารถเป็น available, booked, หรือ maintenance)
-            'status' => $this->faker->randomElement(['available', 'booked', 'maintenance']),
+            'status' => $this->faker->randomElement(['not_reserved', 'reserved' ]),
         ];
     }
 }
